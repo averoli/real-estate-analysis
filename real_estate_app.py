@@ -20,7 +20,10 @@ STANDARD_COLUMNS = {
 st.title("📥 Объединение и анализ Excel-файлов недвижимости")
 
 uploaded_files = st.file_uploader(
-    "Загрузите один или несколько Excel-файлов", type=["xlsx", "xls", "csv"], accept_multiple_files=True)
+    "Загрузите один или несколько Excel-файлов", 
+    type=["xlsx", "xls", "csv"], 
+    accept_multiple_files=True
+)
 
 if uploaded_files:
     all_data = []
@@ -30,16 +33,27 @@ if uploaded_files:
         
         # Чтение файла
         if file.name.endswith(".csv"):
-    df_preview = pd.read_csv(file, header=None, nrows=5)
-    st.write("🧾 Предпросмотр (CSV):", df_preview)
-    header_row = st.number_input(f"🧩 В какой строке заголовки в {file.name}?", min_value=0, max_value=10, value=0, key=f"header_{file.name}")
-    df = pd.read_csv(file, header=header_row)
-else:
-    df_preview = pd.read_excel(file, header=None, nrows=5)
-    st.write("🧾 Предпросмотр (Excel):", df_preview)
-    header_row = st.number_input(f"🧩 В какой строке заголовки в {file.name}?", min_value=0, max_value=10, value=1, key=f"header_{file.name}")
-    df = pd.read_excel(file, header=header_row)
-
+            df_preview = pd.read_csv(file, header=None, nrows=5)
+            st.write("🧾 Предпросмотр (CSV):", df_preview)
+            header_row = st.number_input(
+                f"🧩 В какой строке заголовки в {file.name}?",
+                min_value=0,
+                max_value=10,
+                value=0,
+                key=f"header_{file.name}"
+            )
+            df = pd.read_csv(file, header=header_row)
+        else:
+            df_preview = pd.read_excel(file, header=None, nrows=5)
+            st.write("🧾 Предпросмотр (Excel):", df_preview)
+            header_row = st.number_input(
+                f"🧩 В какой строке заголовки в {file.name}?",
+                min_value=0,
+                max_value=10,
+                value=1,
+                key=f"header_{file.name}"
+            )
+            df = pd.read_excel(file, header=header_row)
 
         st.write("🔎 Найденные колонки:", list(df.columns))
 
@@ -147,6 +161,6 @@ else:
     st.download_button(
         label="💾 Скачать объединённый файл в Excel",
         data=output,
-        file_name="Объединённая_недвижимость.xlsx",
+        file_name="combined_real_estate.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
