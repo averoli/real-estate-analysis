@@ -15,6 +15,15 @@ st.set_page_config(
     layout="wide"
 )
 
+# Configure matplotlib with a simple style
+plt.rcParams.update({
+    'figure.figsize': [10, 6],
+    'axes.grid': True,
+    'grid.alpha': 0.3,
+    'axes.labelsize': 12,
+    'axes.titlesize': 14
+})
+
 # === Column Templates ===
 STANDARD_COLUMNS = {
     "Комплекс": ["Комплекс", "Project", "Name"],
@@ -24,9 +33,6 @@ STANDARD_COLUMNS = {
     "Этажей": ["Этажей", "Floors"],
     "Цена_฿": ["Price, ฿", "Цена", "Price (THB)"]
 }
-
-# Configure matplotlib to use a backend that works with Streamlit
-plt.style.use('seaborn')
 
 st.title("📥 Объединение и анализ Excel-файлов недвижимости")
 
