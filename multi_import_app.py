@@ -18,17 +18,65 @@ STANDARD_COLUMNS = {
 def detect_header_row(df, max_rows_to_check=5):
     """Определяет наиболее вероятную строку заголовков"""
     preview_rows = []
+    best_header_score = 0
+    suggested_header_row = 0
+
     for i in range(min(max_rows_to_check, len(df))):
         row = df.iloc[i]
         non_empty = row.count()
         unnamed_count = sum(1 for col in row.index if 'Unnamed' in str(col))
-        preview_rows.append({
+        
+        # Calculate header likelihood score
+        score = 0
+        row_values = [str(val).strip() for val in row if pd.notna(val)]
+        
+        # Characteristics of a header row:
+        # 1. High number of non-empty cells
+        score += non_empty * 2
+        
+        # 2. Low number of numeric values (headers are usually text)
+        numeric_count = sum(1 for val in row_values if str(val).replace('.', '').isdigit())
+        score -= numeric_count * 3
+        
+        # 3. No very long text (headers are usually short)
+        long_text_count = sum(1 for val in row_values if len(str(val)) > 50)
+        score -= long_text_count * 2
+        
+        # 4. Common header keywords
+        header_keywords = ['project', 'type', 'size', 'area', 'price', 'location', 'floor', 'room', 'bed', 'bath', 'contact']
+        keyword_matches = sum(1 for val in row_values if any(keyword.lower() in str(val).lower() for keyword in header_keywords))
+        score += keyword_matches * 3
+        
+        # 5. Penalize rows with URLs or contact information
+        url_count = sum(1 for val in row_values if 'http' in str(val).lower() or 'www' in str(val).lower())
+        phone_count = sum(1 for val in row_values if any(char.isdigit() for char in str(val)) and '+' in str(val))
+        score -= (url_count + phone_count) * 5
+        
+        # Store row information
+        row_info = {
             'row_num': i,
             'content': row.tolist(),
             'non_empty': non_empty,
-            'unnamed_count': unnamed_count
-        })
-    return preview_rows
+            'unnamed_count': unnamed_count,
+            'score': score,
+            'header_likelihood': 'Низкая'
+        }
+        
+        # Update best score
+        if score > best_header_score:
+            best_header_score = score
+            suggested_header_row = i
+            
+        preview_rows.append(row_info)
+    
+    # Update likelihood labels
+    for row in preview_rows:
+        if row['row_num'] == suggested_header_row:
+            row['header_likelihood'] = 'Высокая'
+        elif row['score'] > best_header_score * 0.7:
+            row['header_likelihood'] = 'Средняя'
+    
+    return preview_rows, suggested_header_row
 
 def analyze_prices(df):
     """Анализ цен по районам"""
@@ -63,13 +111,16 @@ st.set_page_config(
     layout="wide"
 )
 
-# Заголовок
-st.title("🏠 Импорт и анализ данных недвижимости")
-st.markdown("Загрузите файлы Excel или CSV с данными о недвижимости")
+# Заголовок с логотипом
+col1, col2 = st.columns([1, 4])
+with col1:
+    st.image("https://kvaris.com/wp-content/uploads/2.svg", width=100)
+with col2:
+    st.title("Импорт и анализ данных недвижимости")
 
 # Загрузка файлов
 uploaded_files = st.file_uploader(
-    "Выберите файлы Excel или CSV",
+    "Загрузите файлы Excel или CSV с данными о недвижимости",
     type=["xlsx", "xls", "csv"],
     accept_multiple_files=True
 )
@@ -99,30 +150,33 @@ if uploaded_files:
                     df = pd.read_excel(file, header=None)
 
             # Анализ первых строк файла
-            preview_rows = detect_header_row(df)
+            preview_rows, suggested_header = detect_header_row(df)
             
             # Показываем превью данных
             st.write("👀 Превью первых строк файла:")
             for row in preview_rows:
-                st.write(f"Строка {row['row_num'] + 1}: {row['content']}")
-                st.write(f"Непустых ячеек: {row['non_empty']}, Unnamed колонок: {row['unnamed_count']}")
+                st.write(
+                    f"Строка {row['row_num'] + 1}: {row['content']}\n"
+                    f"Непустых ячеек: {row['non_empty']}, "
+                    f"Вероятность заголовка: {row['header_likelihood']}"
+                )
 
-            # Выбор строки заголовков
+            # Выбор строки заголовков с предварительно выбранным значением
             header_row = st.number_input(
                 "Выберите номер строки с заголовками:",
                 min_value=1,
                 max_value=len(df),
-                value=1,
+                value=suggested_header + 1,
                 key=f"header_select_{file.name}"
-            ) - 1  # конвертируем в 0-based индекс
+            ) - 1
 
             # Применяем выбранную строку как заголовок
             df.columns = df.iloc[header_row]
-            df = df.iloc[header_row + 1:]  # удаляем строку заголовков из данных
+            df = df.iloc[header_row + 1:].copy()
             
             # Очистка данных
-            df = df.dropna(axis=1, how='all')  # удаляем полностью пустые столбцы
-            df = df.loc[:, ~df.columns.str.contains('^Unnamed:', na=False)]  # удаляем Unnamed колонки
+            df = df.dropna(axis=1, how='all')
+            df = df.loc[:, ~df.columns.str.contains('^Unnamed:', na=False)]
             
             # Показать найденные колонки
             valid_columns = [str(col) for col in df.columns if not pd.isna(col) and str(col).strip() != ""]
